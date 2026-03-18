@@ -3,6 +3,30 @@ use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 
+fn parallax_style(speed: f64, extra: &'static str) -> String {
+    if extra.is_empty() {
+        format!(
+            "transform: translate3d(0, calc(var(--scroll-y) * {speed:.3}), 0); will-change: transform;"
+        )
+    } else {
+        format!(
+            "transform: translate3d(0, calc(var(--scroll-y) * {speed:.3}), 0) {extra}; will-change: transform;"
+        )
+    }
+}
+
+fn parallax_style_with_x(x: &'static str, speed: f64, extra: &'static str) -> String {
+    if extra.is_empty() {
+        format!(
+            "transform: translate3d({x}, calc(var(--scroll-y) * {speed:.3}), 0); will-change: transform;"
+        )
+    } else {
+        format!(
+            "transform: translate3d({x}, calc(var(--scroll-y) * {speed:.3}), 0) {extra}; will-change: transform;"
+        )
+    }
+}
+
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
@@ -91,14 +115,49 @@ fn VideoCard(
 
 #[component]
 fn HomePage() -> impl IntoView {
+    let (scroll_y, set_scroll_y) = create_signal(0.0_f64);
+
+    #[cfg(not(feature = "hydrate"))]
+    let _ = set_scroll_y;
+
+    #[cfg(feature = "hydrate")]
+    {
+        use std::{cell::Cell, rc::Rc};
+
+        let window = window();
+        set_scroll_y.set(window.scroll_y().unwrap_or_default());
+
+        let pending = Rc::new(Cell::new(false));
+        let handle = window_event_listener(ev::scroll, {
+            let pending = pending.clone();
+            let window = window.clone();
+            move |_| {
+                if pending.replace(true) {
+                    return;
+                }
+
+                let pending = pending.clone();
+                let window = window.clone();
+                request_animation_frame(move || {
+                    pending.set(false);
+                    set_scroll_y.set(window.scroll_y().unwrap_or_default());
+                });
+            }
+        });
+
+        on_cleanup(move || handle.remove());
+    }
+
+    let page_style = move || format!("--scroll-y: {:.2}px;", scroll_y.get());
+
     view! {
-        <main class="portfolio-page">
+        <main class="portfolio-page" style=page_style>
             <header class="topbar">
                 <a class="brand" href="#top">
                     <span class="brand-mark">"N"</span>
                     <span class="brand-copy">
                         <strong>"NICOL / MOTION"</strong>
-                        <span>"portfolio concept"</span>
+                        <span>"actual parallax concept"</span>
                     </span>
                 </a>
                 <nav class="topnav">
@@ -110,31 +169,41 @@ fn HomePage() -> impl IntoView {
             </header>
 
             <section id="top" class="scene hero-scene">
-                <div class="scene-pin hero-pin">
-                    <div class="hero-grid"></div>
-                    <div class="hero-haze hero-haze-one"></div>
-                    <div class="hero-haze hero-haze-two"></div>
-                    <div class="hero-orbit orbit-a"></div>
-                    <div class="hero-orbit orbit-b"></div>
-                    <div class="hero-watermark">"STACK"</div>
+                <div class="scene-shell hero-shell">
+                    <div
+                        class="hero-grid"
+                        style=parallax_style(0.12, "perspective(1200px) rotateX(72deg)")
+                    ></div>
+                    <div
+                        class="hero-grid hero-grid-secondary"
+                        style=parallax_style(0.07, "perspective(1200px) rotateX(72deg) rotateZ(7deg)")
+                    ></div>
+                    <div class="hero-haze hero-haze-one" style=parallax_style(0.15, "")></div>
+                    <div class="hero-haze hero-haze-two" style=parallax_style(0.22, "")></div>
+                    <div class="hero-orbit orbit-a" style=parallax_style(0.1, "rotate(8deg)")></div>
+                    <div class="hero-orbit orbit-b" style=parallax_style(0.16, "")></div>
+                    <div class="hero-watermark" style=parallax_style(0.06, "")>
+                        "STACK"
+                    </div>
 
                     <div class="hero-copy-block">
-                        <p class="eyebrow">"Creative developer / z-index theatre / scroll obsession"</p>
+                        <p class="eyebrow">"Creative developer / actual parallax / scroll obsession"</p>
                         <h1 class="hero-title">
                             <span>"I build"</span>
                             <span>"portfolio"</span>
                             <span>"gravity."</span>
                         </h1>
                         <p class="hero-copy">
-                            "A loud one-page concept with layered cards, sticky scenes, oversized type,
-                            floating gradients, and a few random YouTube embeds dropped into the composition."
+                            "No pinned-scroll fakeout. The foreground moves with the document and the decorative
+                            planes keep drifting continuously underneath it at slower speeds."
                         </p>
                         <div class="hero-tags">
-                            <span>"Parallax"</span>
+                            <span>"Constant drift"</span>
                             <span>"Depth"</span>
                             <span>"Motion"</span>
                             <span>"Embedded chaos"</span>
                         </div>
+                        <a class="scroll-cue" href="#work">"Drop into the stack"</a>
                     </div>
 
                     <aside class="info-card intro-card">
@@ -147,25 +216,27 @@ fn HomePage() -> impl IntoView {
                     </aside>
 
                     <div class="info-card metrics-card">
-                        <Metric label="Scenes" value="05 layered chapters"/>
+                        <Metric label="Motion" value="continuous parallax layers"/>
                         <Metric label="Mood" value="neon dusk + warm glass"/>
                         <Metric label="Delivery" value="Leptos single page build"/>
                     </div>
-
-                    <a class="scroll-cue" href="#work">"Drop into the stack"</a>
                 </div>
             </section>
 
             <section id="about" class="scene about-scene">
-                <div class="scene-pin about-pin">
-                    <div class="about-backdrop">"DEPTH"</div>
+                <div class="scene-shell about-shell">
+                    <div class="about-backdrop" style=parallax_style(0.08, "rotate(-90deg)")>
+                        "DEPTH"
+                    </div>
+                    <div class="about-haze about-haze-one" style=parallax_style(0.12, "")></div>
+                    <div class="about-haze about-haze-two" style=parallax_style(0.18, "")></div>
 
                     <div class="about-panel statement-panel">
                         <p class="eyebrow">"Approach"</p>
                         <h2>"Big type in front. Systems underneath. Motion doing the storytelling."</h2>
                         <p>
-                            "I lean on overlap, sticky layers, sharp contrast, and controlled clutter so a page
-                            keeps revealing itself as you move through it."
+                            "The page keeps flowing at full speed while the set dressing drifts underneath it,
+                            so the depth reads as actual parallax instead of pinned chapters pretending to move."
                         </p>
                     </div>
 
@@ -189,13 +260,17 @@ fn HomePage() -> impl IntoView {
             </section>
 
             <section id="work" class="scene work-scene">
-                <div class="scene-pin work-pin">
+                <div class="scene-shell work-shell">
+                    <div class="work-grid" style=parallax_style(0.08, "rotate(-7deg)")></div>
+                    <div class="work-glow work-glow-one" style=parallax_style(0.13, "")></div>
+                    <div class="work-glow work-glow-two" style=parallax_style(0.18, "")></div>
+
                     <div class="section-copy">
                         <p class="eyebrow">"Selected chaos"</p>
                         <h2>"Cards sliding over cards over cards."</h2>
                         <p>
-                            "These are mock case studies, but the layout language is the point: angled panels,
-                            stacked depth, and content that looks like it is fighting for the front layer."
+                            "The projects ride the normal document flow. The backplanes and glows lag behind them
+                            on purpose so the whole thing keeps a real sense of depth as you move down the page."
                         </p>
                     </div>
 
@@ -205,21 +280,21 @@ fn HomePage() -> impl IntoView {
                             index="01"
                             title="Signal Burst"
                             detail="Identity site / broadcast graphics / live merch drop"
-                            body="A launch page where headlines lock in place while cards shear past them and product moments surface one layer at a time."
+                            body="A launch page where headlines stay aggressive and the supporting layers keep drifting behind the content instead of freezing it in place."
                         />
                         <ProjectCard
                             class_name="project-beta"
                             index="02"
                             title="Afterlight Archive"
                             detail="Photographer portfolio / essays / edition sales"
-                            body="Dense image-led storytelling built around negative space, editorial rhythm, and a sense that every block is sliding in from a different plane."
+                            body="Dense image-led storytelling built around negative space, editorial rhythm, and parallax planes that make the photography feel staged rather than tiled."
                         />
                         <ProjectCard
                             class_name="project-gamma"
                             index="03"
                             title="Static Bloom"
                             detail="Creative studio / reel / client deck"
-                            body="A homepage that treats credentials like posters pinned into a moving set, with fragments drifting behind the primary narrative."
+                            body="A homepage that treats credentials like posters pinned into a moving set, with fragments drifting behind the main narrative at lower speeds."
                         />
                     </div>
 
@@ -233,13 +308,17 @@ fn HomePage() -> impl IntoView {
             </section>
 
             <section id="video" class="scene video-scene">
-                <div class="scene-pin video-pin">
+                <div class="scene-shell video-shell">
+                    <div class="video-rings" style=parallax_style(0.07, "rotate(14deg)")></div>
+                    <div class="video-haze video-haze-one" style=parallax_style(0.12, "")></div>
+                    <div class="video-haze video-haze-two" style=parallax_style(0.19, "")></div>
+
                     <div class="section-copy video-copy-block">
                         <p class="eyebrow">"Video wall"</p>
                         <h2>"Random YouTube energy, treated like floating set pieces."</h2>
                         <p>
-                            "The embeds are part moodboard, part proof that media blocks can be dropped into a
-                            composition without flattening the page. Swap the IDs later if you want a tighter reel."
+                            "The embeds stay in the foreground and the ring system behind them keeps sliding more
+                            slowly, so the media stack feels like part of the scene instead of a dead grid."
                         </p>
                     </div>
 
@@ -271,8 +350,15 @@ fn HomePage() -> impl IntoView {
             </section>
 
             <section id="contact" class="scene contact-scene">
-                <div class="scene-pin contact-pin">
-                    <div class="contact-backdrop"></div>
+                <div class="scene-shell contact-shell">
+                    <div
+                        class="contact-backdrop"
+                        style=parallax_style_with_x("-50%", 0.08, "")
+                    ></div>
+                    <div
+                        class="contact-backdrop contact-backdrop-secondary"
+                        style=parallax_style_with_x("-50%", 0.14, "")
+                    ></div>
 
                     <div class="contact-card">
                         <p class="eyebrow">"Last layer"</p>
